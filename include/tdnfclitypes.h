@@ -133,6 +133,13 @@ typedef uint32_t
     PTDNF_UPDATEINFO_ARGS,
     PTDNF_UPDATEINFO_SUMMARY *);
 
+/* return a command opt value by name */
+typedef uint32_t
+(*PFN_TDNF_GETCMDOPT_VALUE)(
+    PTDNF_CLI_CONTEXT,
+    const char *,
+    char **);
+
 typedef struct _TDNF_CLI_CONTEXT_
 {
     HTDNF hTdnf;
@@ -152,6 +159,7 @@ typedef struct _TDNF_CLI_CONTEXT_
     PFN_TDNF_SEARCH             pFnSearch;
     PFN_TDNF_UPDATEINFO         pFnUpdateInfo;
     PFN_TDNF_UPDATEINFO_SUMMARY pFnUpdateInfoSummary;
+    PFN_TDNF_GETCMDOPT_VALUE    pFnGetCmdOptValue;
 }TDNF_CLI_CONTEXT, *PTDNF_CLI_CONTEXT;
 
 #ifdef __cplusplus

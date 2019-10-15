@@ -959,6 +959,17 @@ TDNFResolve(
         pSolvedPkgInfo->pPkgsToDowngrade ||
         pSolvedPkgInfo->pPkgsToReinstall;
 
+    /*
+     * if there are gpg keys that are not installed but specified
+     * in repo definitions, add them to the resolve feedback.
+     * do this only if assumeyes is not set
+    */
+    if (pTdnf->pArgs->nAssumeYes == 0 && pSolvedPkgInfo->nNeedDownload)
+    {
+        dwError = TDNFAddGPGKeysToImport(pTdnf, pSolvedPkgInfo);
+        BAIL_ON_TDNF_ERROR(dwError);
+    }
+
     pSolvedPkgInfo->ppszPkgsNotResolved = ppszPkgsNotResolved;
     *ppSolvedPkgInfo = pSolvedPkgInfo;
 

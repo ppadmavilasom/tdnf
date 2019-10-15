@@ -88,6 +88,7 @@ int main(int argc, char* argv[])
     _context.pFnSearch = TDNFCliInvokeSearch;
     _context.pFnUpdateInfo = TDNFCliInvokeUpdateInfo;
     _context.pFnUpdateInfoSummary = TDNFCliInvokeUpdateInfoSummary;
+    _context.pFnGetCmdOptValue = TDNFCliInvokeGetCmdOptValue;
 
     dwError = TDNFCliParseArgs(argc, argv, &pCmdArgs);
     BAIL_ON_CLI_ERROR(dwError);
@@ -411,4 +412,14 @@ TDNFCliInvokeUpdateInfoSummary(
                nAvail,
                pInfoArgs->ppszPackageNameSpecs,
                ppSummary);
+}
+
+uint32_t
+TDNFCliInvokeGetCmdOptValue(
+    PTDNF_CLI_CONTEXT pContext,
+    const char *pszName,
+    char **ppszValue
+    )
+{
+    return TDNFGetCmdOptValue(pContext->hTdnf, pszName, ppszValue);
 }

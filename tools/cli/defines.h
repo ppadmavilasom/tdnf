@@ -22,9 +22,6 @@
 #pragma once
 
 
-#define ENABLEREPO        "enablerepo"
-#define DISABLEREPO       "disablerepo"
-
 #define IsNullOrEmptyString(str) (!(str) || !(*str))
 
 #define BAIL_ON_CLI_ERROR(unError) \

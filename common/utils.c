@@ -377,3 +377,114 @@ TDNFFreeCleanInfo(
         TDNFFreeMemory(pCleanInfo);
     }
 }
+
+uint32_t
+TDNFCountMatchesInString(
+    const char *pszString,
+    const char *pszFind,
+    int *pnCount
+    )
+{
+    uint32_t dwError = 0;
+    int nCount = 0;
+    int nOffset = 0;
+    int nFindLength = 0;
+    char *pszMatch = NULL;
+
+    if(IsNullOrEmptyString(pszString) ||
+       IsNullOrEmptyString(pszFind) ||
+       !pnCount)
+    {
+        dwError = ERROR_TDNF_INVALID_PARAMETER;
+        BAIL_ON_TDNF_ERROR(dwError);
+    }
+
+    nFindLength = strlen(pszFind);
+    while((pszMatch = strcasestr(pszString + nOffset, pszFind)))
+    {
+        ++nCount;
+        nOffset = pszMatch - pszString + nFindLength;
+    }
+
+    *pnCount = nCount;
+cleanup:
+    return dwError;
+
+error:
+    if(pnCount)
+    {
+        *pnCount = 0;
+    }
+    goto cleanup;
+}
+
+uint32_t
+TDNFMakeArrayFromString(
+    const char *pszString,
+    const char *pszSeparator,
+    char ***pppszArray,
+    int *pnCount
+    )
+{
+    uint32_t dwError = 0;
+    char **ppszArray = NULL;
+    char *pszBoundary = NULL;
+    int nOffset = 0;
+    int nSepLength = 0;
+    int nCount = 1;
+    int nIndex = 0;
+
+    if(IsNullOrEmptyString(pszString) ||
+       IsNullOrEmptyString(pszSeparator) ||
+       !pppszArray ||
+       !pnCount)
+    {
+        dwError = ERROR_TDNF_INVALID_PARAMETER;
+        BAIL_ON_TDNF_ERROR(dwError);
+    }
+
+    dwError = TDNFCountMatchesInString(pszString, pszSeparator, &nCount);
+    BAIL_ON_TDNF_ERROR(dwError);
+
+    ++nCount;
+
+    dwError = TDNFAllocateMemory(1, sizeof(char **) * (nCount),
+                                 (void **)&ppszArray);
+    BAIL_ON_TDNF_ERROR(dwError);
+
+    nOffset = 0;
+    nIndex = 0;
+    nSepLength = strlen(pszSeparator);
+    while((pszBoundary = strcasestr(pszString + nOffset, pszSeparator)))
+    {
+        int nLength = pszBoundary - (pszString + nOffset);
+        dwError = TDNFAllocateMemory(1, sizeof(char) * (nLength + 1),
+                                    (void **)&ppszArray[nIndex]);
+        BAIL_ON_TDNF_ERROR(dwError);
+
+        memcpy(ppszArray[nIndex], pszString + nOffset, nLength);
+
+        nOffset = pszBoundary - pszString + nSepLength;
+        ++nIndex;
+    }
+
+    dwError = TDNFAllocateString(pszString + nOffset, &ppszArray[nIndex]);
+    BAIL_ON_TDNF_ERROR(dwError);
+
+    *pppszArray = ppszArray;
+    *pnCount = nCount;
+cleanup:
+    return dwError;
+
+error:
+    if(pppszArray)
+    {
+        *pppszArray = NULL;
+    }
+    if(pnCount)
+    {
+        *pnCount = 0;
+    }
+    TDNFFreeStringArrayWithCount(ppszArray, nCount);
+    goto cleanup;
+}

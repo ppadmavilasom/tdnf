@@ -119,7 +119,8 @@ error:
     {
         TDNFFreeReposInternal(pReposAll);
     }
-    goto cleanup;}
+    goto cleanup;
+}
 
 uint32_t
 TDNFLoadReposFromFile(

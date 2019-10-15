@@ -159,6 +159,118 @@ error:
     goto cleanup;
 }
 
+/*
+ * fetch details of the key at index nIndex
+ * notify user and ask for permission to import this
+ * key to verify rpm signature
+*/
+static
+uint32_t
+_AskPermissionToImportGPGKey(
+    PTDNF_CLI_CONTEXT pContext,
+    int nIndex
+    )
+{
+    uint32_t dwError = 0;
+    int i = 0;
+    enum
+    {
+        KEYID=0,
+        USERID,
+        FINGERPRINT,
+        FROM,
+        VALID
+    };
+    char *ppszFormat[] = {
+        CMDOPT_FORMAT_GPGKEY_ID,
+        CMDOPT_FORMAT_GPGKEY_USERID,
+        CMDOPT_FORMAT_GPGKEY_FINGERPRINT,
+        CMDOPT_FORMAT_GPGKEY_FROM,
+        CMDOPT_FORMAT_GPGKEY_VALID
+    };
+    char *ppszNames[VALID+1] = {0};
+    char *ppszValues[VALID+1] = {0};
+
+    if(!pContext || !pContext->hTdnf || nIndex < 0)
+    {
+        dwError = ERROR_TDNF_INVALID_PARAMETER;
+        BAIL_ON_CLI_ERROR(dwError);
+    }
+
+    for (i = KEYID; i <= VALID; ++i)
+    {
+        dwError = TDNFAllocateStringPrintf(&ppszNames[i], ppszFormat[i]);
+        BAIL_ON_CLI_ERROR(dwError);
+    }
+
+    for (i = KEYID; i <= VALID; ++i)
+    {
+        dwError = pContext->pFnGetCmdOptValue(pContext,
+                                              ppszNames[i],
+                                              &ppszValues[i]);
+        BAIL_ON_CLI_ERROR(dwError);
+    }
+
+error:
+    for (i = KEYID; i <= VALID; ++i)
+    {
+        TDNF_CLI_SAFE_FREE_MEMORY(ppszNames[i]);
+        TDNF_CLI_SAFE_FREE_MEMORY(ppszValues[i]);
+    }
+    /* clear error if there are no external keys */
+    if (dwError == ERROR_TDNF_NO_EXTERNAL_GPG_KEYS)
+    {
+        dwError = 0;
+    }
+    return dwError;
+}
+
+static
+uint32_t
+_AskPermissionToImportGPGKeys(
+    PTDNF_CLI_CONTEXT pContext
+    )
+{
+    uint32_t dwError = 0;
+    int i = 0;
+    int nGPGKeyCount = 0;
+    char *pszGPGKeyCount = NULL;
+
+    if(!pContext || !pContext->hTdnf)
+    {
+        dwError = ERROR_TDNF_INVALID_PARAMETER;
+        BAIL_ON_CLI_ERROR(dwError);
+    }
+
+    dwError = pContext->pFnGetCmdOptValue(pContext,
+                                          CMDOPT_NAME_GPGKEY_COUNT,
+                                          &pszGPGKeyCount);
+    if (dwError == ERROR_TDNF_FILE_NOT_FOUND)
+    {
+        dwError = ERROR_TDNF_NO_EXTERNAL_GPG_KEYS;
+    }
+    BAIL_ON_CLI_ERROR(dwError);
+
+    /* at this point we should have at least one gpg key to process */
+    nGPGKeyCount = atoi(pszGPGKeyCount);
+
+   for (i = 0; i < nGPGKeyCount; ++i)
+   {
+       dwError = _AskPermissionToImportGPGKey(pContext, i);
+       BAIL_ON_CLI_ERROR(dwError);
+   }
+
+error:
+    TDNF_CLI_SAFE_FREE_MEMORY(pszGPGKeyCount);
+
+    /* clear error if there are no external keys */
+    if (dwError == ERROR_TDNF_NO_EXTERNAL_GPG_KEYS)
+    {
+        dwError = 0;
+    }
+    return dwError;
+}
+
 uint32_t
 TDNFCliAlterCommand(
     PTDNF_CLI_CONTEXT pContext,
@@ -224,6 +336,13 @@ TDNFCliAlterCommand(
             if (scanf("%c", &chChoice) != 1)
             {
                 printf("Invalid input\n");
+            }
+
+            /* ask for gpgkey import if external urls are present */
+            if (chChoice == 'y')
+            {
+                dwError = _AskPermissionToImportGPGKeys(pContext);
+                BAIL_ON_CLI_ERROR(dwError);
             }
         }
 

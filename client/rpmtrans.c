@@ -66,12 +66,6 @@ TDNFRpmExecTransaction(
         dwError = ERROR_TDNF_RPMTS_CREATE_FAILED;
         BAIL_ON_TDNF_ERROR(dwError);
     }
-    ts.pKeyring = rpmKeyringNew();
-    if(!ts.pKeyring)
-    {
-        dwError = ERROR_TDNF_RPMTS_KEYRING_FAILED;
-        BAIL_ON_TDNF_ERROR(dwError);
-    }
 
     ts.nTransFlags = rpmtsSetFlags (ts.pTS, RPMTRANS_FLAG_NONE);
 
@@ -86,6 +80,16 @@ TDNFRpmExecTransaction(
         dwError = ERROR_TDNF_RPMTS_SET_CB_FAILED;
         BAIL_ON_TDNF_ERROR(dwError);
     }
+
+    /* create transaction set for signature verify */
+    ts.pVerifyTS = rpmtsCreate();
+    if(!ts.pTS)
+    {
+        dwError = ERROR_TDNF_RPMTS_CREATE_FAILED;
+        BAIL_ON_TDNF_ERROR(dwError);
+    }
+    /* set as test so that we can do verification without affecting db */
+    rpmtsSetFlags(ts.pVerifyTS, RPMTRANS_FLAG_TEST);
 
     dwError = TDNFPopulateTransaction(&ts, pTdnf, pSolvedInfo);
     BAIL_ON_TDNF_ERROR(dwError);
@@ -103,6 +107,11 @@ cleanup:
     {
         rpmKeyringFree(ts.pKeyring);
     }
+    if(ts.pVerifyTS)
+    {
+        rpmtsCloseDB(ts.pVerifyTS);
+        rpmtsFree(ts.pVerifyTS);
+    }
     if(ts.pCachedRpmsArray)
     {
         if(!nKeepCachedRpms)
@@ -111,6 +120,7 @@ cleanup:
         }
         TDNFFreeCachedRpmsArray(ts.pCachedRpmsArray);
     }
+    TDNFFreeKeyValues(ts.pImportedKeys);
     return dwError;
 
 error:
@@ -169,7 +179,7 @@ TDNFPopulateTransaction(
                       pTS,
                       pTdnf,
                       pSolvedInfo->pPkgsToReinstall);
-        BAIL_ON_TDNF_ERROR(dwError);    
+        BAIL_ON_TDNF_ERROR(dwError);
     }
     if(pSolvedInfo->pPkgsToUpgrade)
     {
@@ -385,6 +395,86 @@ TDNFTransAddReInstallPkgs(
     return TDNFTransAddInstallPkgs(pTS, pTdnf, pInfo);
 }
 
+static
+int
+_IsKeyUrlInCache(
+    PKEYVALUE pImportedKeys,
+    const char *pszUrlGPGKey
+    )
+{
+    int nFound = 0;
+    PKEYVALUE pKeyValue = NULL;
+
+    if (!pImportedKeys)
+    {
+        goto cleanup;
+    }
+
+    for(pKeyValue = pImportedKeys; pKeyValue; pKeyValue = pKeyValue->pNext)
+    {
+        if (!strcmp(pKeyValue->pszKey, pszUrlGPGKey))
+        {
+            nFound = 1;
+            goto cleanup;
+        }
+    }
+
+cleanup:
+    return nFound;
+}
+
+static
+uint32_t
+_AddKeyUrlToCache(
+    PTDNFRPMTS pTS,
+    const char *pszUrlGPGKey
+    )
+{
+    uint32_t dwError = 0;
+    PKEYVALUE pKeyValue = NULL;
+    PKEYVALUE pNewKeyValue = NULL;
+
+    if (!pTS || IsNullOrEmptyString(pszUrlGPGKey))
+    {
+        dwError = ERROR_TDNF_INVALID_PARAMETER;
+        BAIL_ON_TDNF_ERROR(dwError);
+    }
+
+    if (_IsKeyUrlInCache(pTS->pImportedKeys, pszUrlGPGKey))
+    {
+        dwError = ERROR_TDNF_ALREADY_EXISTS;
+        BAIL_ON_TDNF_ERROR(dwError);
+    }
+
+    dwError = TDNFAllocateMemory(
+                  1,
+                  sizeof(KEYVALUE),
+                  (void**)&pNewKeyValue);
+    BAIL_ON_TDNF_ERROR(dwError);
+
+    dwError = TDNFAllocateString(pszUrlGPGKey, &pNewKeyValue->pszKey);
+    BAIL_ON_TDNF_ERROR(dwError);
+
+    pKeyValue = pTS->pImportedKeys;
+    for(;pKeyValue && pKeyValue->pNext; pKeyValue = pKeyValue->pNext);
+
+    if (pKeyValue)
+    {
+        pKeyValue->pNext = pNewKeyValue;
+    }
+    else
+    {
+        pTS->pImportedKeys = pNewKeyValue;
+    }
+
+cleanup:
+    return dwError;
+
+error:
+    TDNFFreeKeyValues(pNewKeyValue);
+    goto cleanup;
+}
+
 uint32_t
 TDNFTransAddInstallPkg(
     PTDNFRPMTS pTS,
@@ -396,7 +486,7 @@ TDNFTransAddInstallPkg(
     )
 {
     uint32_t dwError = 0;
-    int nGPGCheck = 0;
+    //int nGPGCheck = 0;
     int nGPGSigCheck = 0;
     char* pszRpmCacheDir = NULL;
     char* pszFilePath = NULL;
@@ -438,7 +528,7 @@ TDNFTransAddInstallPkg(
         if(errno != ENOENT)
         {
             dwError = errno;
-        } 
+        }
         BAIL_ON_TDNF_SYSTEM_ERROR(dwError);
 
         dwError = TDNFUtilsMakeDirs(pszDownloadCacheDir);
@@ -464,14 +554,27 @@ TDNFTransAddInstallPkg(
         BAIL_ON_TDNF_SYSTEM_ERROR(dwError);
     }
 
-    //Check override, then repo config and launch
-    //gpg check if needed
+    /*
+     * Check override, then repo config and import gpg keys
+     * into a verify transaction
+    */
     dwError = TDNFGetGPGSignatureCheck(pTdnf, pszRepoName, &nGPGSigCheck, &pszUrlGPGKey);
     BAIL_ON_TDNF_ERROR(dwError);
     if(nGPGSigCheck)
     {
-        dwError = TDNFGPGCheck(pTS->pKeyring, pszUrlGPGKey, pszFilePath);
-        BAIL_ON_TDNF_ERROR(dwError);
+        if (_IsKeyUrlInCache(pTS->pImportedKeys, pszUrlGPGKey) == 0)
+        {
+            dwError = TDNFImportGPGKeys(pTdnf, pTS->pVerifyTS, pszRepoName,
+                                        pszUrlGPGKey, pszFilePath);
+            BAIL_ON_TDNF_ERROR(dwError);
+
+            dwError = _AddKeyUrlToCache(pTS, pszUrlGPGKey);
+            if (dwError == ERROR_TDNF_ALREADY_EXISTS)
+            {
+                dwError = 0;
+            }
+            BAIL_ON_TDNF_ERROR(dwError);
+        }
     }
 
     fp = Fopen (pszFilePath, "r.ufdio");
@@ -481,8 +584,13 @@ TDNFTransAddInstallPkg(
         BAIL_ON_TDNF_SYSTEM_ERROR(dwError);
     }
 
+    /*
+     * reading package file will verify signatures if configured
+     * this is done with the verify transaction so that gpgkeys brought in
+     * via external urls are not installed but are used for verification.
+    */
     dwError = rpmReadPackageFile(
-                  pTS->pTS,
+                  pTS->pVerifyTS,
                   fp,
                   pszFilePath,
                   &rpmHeader);
@@ -492,14 +600,6 @@ TDNFTransAddInstallPkg(
         dwError = 0;
     }
     BAIL_ON_TDNF_RPM_ERROR(dwError);
-
-    dwError = TDNFGetGPGCheck(pTdnf, pszRepoName, &nGPGCheck, &pszUrlGPGKey);
-    BAIL_ON_TDNF_ERROR(dwError);
-    if (!nGPGCheck)
-    {
-        rpmtsSetVSFlags(pTS->pTS, rpmtsVSFlags(pTS->pTS) | RPMVSF_MASK_NODIGESTS | RPMVSF_MASK_NOSIGNATURES);
-        rpmtsSetVfyLevel(pTS->pTS, ~RPMSIG_VERIFIABLE_TYPE);
-    }
 
     dwError = rpmtsAddInstallElement(
                   pTS->pTS,

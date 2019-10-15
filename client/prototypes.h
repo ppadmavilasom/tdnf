@@ -34,26 +34,16 @@ TDNFApplyScopeFilter(
 
 //gpgcheck.c
 uint32_t
-ReadGPGKey(
-   const char* pszFile,
-   char** ppszKeyData
-   );
-
-uint32_t
-AddKeyToKeyRing(
-    const char* pszFile,
-    rpmKeyring pKeyring
+TDNFAddGPGKeysToImport(
+    PTDNF pTdnf,
+    PTDNF_SOLVED_PKG_INFO pSolvedPkgInfo
     );
 
 uint32_t
-VerifyRpmSig(
-    rpmKeyring pKeyring,
-    const char* pszPkgFile
-    );
-
-uint32_t
-TDNFGPGCheck(
-    rpmKeyring pKeyring,
+TDNFImportGPGKeys(
+    PTDNF pTdnf,
+    rpmts pSigVerifyTS,
+    const char *pszRepo,
     const char* pszUrlKeyFile,
     const char* pszPackage
     );

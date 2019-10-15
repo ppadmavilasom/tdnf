@@ -163,6 +163,13 @@ TDNFCliInvokeUpdateInfoSummary(
     PTDNF_UPDATEINFO_SUMMARY *ppSummary
     );
 
+uint32_t
+TDNFCliInvokeGetCmdOptValue(
+    PTDNF_CLI_CONTEXT pContext,
+    const char *pszName,
+    char **ppszValue
+    );
+
 //main.c
 void
 TDNFCliShowVersion(

@@ -14,6 +14,18 @@
 extern "C" {
 #endif
 
+/* cmd opt names */
+#define CMDOPT_NAME_ENABLEREPO        "enablerepo"
+#define CMDOPT_NAME_DISABLEREPO       "disablerepo"
+#define CMDOPT_NAME_GPGKEY_COUNT      "gpgkeycount"
+
+/* gpg key opt format */
+#define CMDOPT_FORMAT_GPGKEY_ID           "gpgkey%d.id"
+#define CMDOPT_FORMAT_GPGKEY_USERID       "gpgkey%d.userid"
+#define CMDOPT_FORMAT_GPGKEY_FINGERPRINT  "gpgkey%d.fingerprint"
+#define CMDOPT_FORMAT_GPGKEY_FROM         "gpgkey%d.from"
+#define CMDOPT_FORMAT_GPGKEY_VALID        "gpgkey%d.valid"
+
 typedef enum
 {
     CONF_FLAG_IPV4,

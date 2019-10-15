@@ -61,11 +61,13 @@ typedef struct _TDNF_RPM_TS_
 {
     int                     nQuiet;
     rpmts                   pTS;
+    rpmts                   pVerifyTS;
     rpmKeyring              pKeyring;
     rpmtransFlags           nTransFlags;
     rpmprobFilterFlags      nProbFilterFlags;
     FD_t                    pFD;
     PTDNF_CACHED_RPM_LIST   pCachedRpmsArray;
+    PKEYVALUE               pImportedKeys;
 }TDNFRPMTS, *PTDNFRPMTS;
 
 typedef struct _TDNF_ENV_

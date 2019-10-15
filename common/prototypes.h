@@ -108,6 +108,11 @@ TDNFFreeConfigData(
     PCONF_DATA pData
     );
 
+void
+TDNFFreeKeyValues(
+    PKEYVALUE pKeyValues
+    );
+
 //utils.c
 uint32_t
 TDNFFileReadAllText(
@@ -140,4 +145,19 @@ TDNFFreePackageInfoContents(
 uint32_t
 TDNFUtilsMakeDirs(
     const char* pszPath
+    );
+
+uint32_t
+TDNFCountMatchesInString(
+    const char *pszString,
+    const char *pszFind,
+    int *pnCount
+    );
+
+uint32_t
+TDNFMakeArrayFromString(
+    const char *pszString,
+    const char *pszSeparator,
+    char ***pppszArray,
+    int *pnCount
     );

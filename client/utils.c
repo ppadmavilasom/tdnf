@@ -651,3 +651,56 @@ TDNFGetCmdOpt(
 error:
     return dwError;
 }
+
+uint32_t
+TDNFGetCmdOptValue(
+    PTDNF pTdnf,
+    const char *pszOptName,
+    char **ppszOptValue
+    )
+{
+    uint32_t dwError = 0;
+    PTDNF_CMD_OPT pOpt = NULL;
+    char *pszOptValue = NULL;
+    int nFound = 0;
+
+    if(!pTdnf || !pTdnf->pArgs ||
+       IsNullOrEmptyString(pszOptName) || !ppszOptValue)
+    {
+        dwError = ERROR_TDNF_INVALID_PARAMETER;
+        BAIL_ON_TDNF_ERROR(dwError);
+    }
+
+    for (pOpt = pTdnf->pArgs->pSetOpt;
+         pOpt;
+         pOpt = pOpt->pNext)
+    {
+        if (pOpt->nType == CMDOPT_KEYVALUE &&
+            !strcmp(pOpt->pszOptName, pszOptName))
+        {
+            nFound = 1;
+            break;
+        }
+    }
+
+    if (!nFound)
+    {
+        dwError = ERROR_TDNF_FILE_NOT_FOUND;
+        BAIL_ON_TDNF_ERROR(dwError);
+    }
+
+    if (pOpt->pszOptValue)
+    {
+        dwError = TDNFAllocateString(pOpt->pszOptValue, &pszOptValue);
+        BAIL_ON_TDNF_ERROR(dwError);
+    }
+
+    *ppszOptValue = pszOptValue;
+
+cleanup:
+    return dwError;
+
+error:
+    TDNF_SAFE_FREE_MEMORY(pszOptValue);
+    goto cleanup;
+}

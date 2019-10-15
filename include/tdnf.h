@@ -183,6 +183,13 @@ TDNFGetErrorString(
     char** ppszErrorString
     );
 
+uint32_t
+TDNFGetCmdOptValue(
+    PTDNF pTdnf,
+    const char *pszOptName,
+    char **pszOptValue
+    );
+
 void
 TDNFCloseHandle(
     PTDNF pTdnf

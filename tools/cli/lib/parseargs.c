@@ -280,19 +280,19 @@ ParseOption(
                       &pCmdArgs->nRpmVerbosity);
         BAIL_ON_CLI_ERROR(dwError);
     }
-    else if(!strcasecmp(pszName, "enablerepo"))
+    else if(!strcasecmp(pszName, CMDOPT_NAME_ENABLEREPO))
     {
         dwError = AddSetOptWithValues(pCmdArgs,
                                       CMDOPT_ENABLEREPO,
-                                      ENABLEREPO,
+                                      CMDOPT_NAME_ENABLEREPO,
                                       optarg);
         BAIL_ON_CLI_ERROR(dwError);
     }
-    else if(!strcasecmp(pszName, "disablerepo"))
+    else if(!strcasecmp(pszName, CMDOPT_NAME_DISABLEREPO))
     {
         dwError = AddSetOptWithValues(pCmdArgs,
                                       CMDOPT_DISABLEREPO,
-                                      DISABLEREPO,
+                                      CMDOPT_NAME_DISABLEREPO,
                                       optarg);
         BAIL_ON_CLI_ERROR(dwError);
     }

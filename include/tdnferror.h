@@ -125,6 +125,8 @@ extern "C" {
 #define ERROR_TDNF_RPM_GPG_PARSE_FAILED      1513
 #define ERROR_TDNF_RPM_GPG_NO_MATCH          1514
 #define ERROR_TDNF_RPM_CHECK                 1515
+#define ERROR_TDNF_NO_EXTERNAL_GPG_KEYS      1516
+#define ERROR_TDNF_GET_KEYRING_FAILED        1517
 
 //RPM Transaction
 #define ERROR_TDNF_TRANS_INCOMPLETE     1525

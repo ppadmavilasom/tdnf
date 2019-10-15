@@ -20,9 +20,97 @@
 
 #include "includes.h"
 
+static
 uint32_t
-TDNFGPGCheck(
-    rpmKeyring pKeyring,
+_ImportKeys(
+    PTDNF pTdnf,
+    rpmts pSigVerifyTS,
+    const char *pszRepo,
+    const char* pszFile
+    );
+
+uint32_t
+_ReadGPGKey(
+   PTDNF pTdnf,
+   const char *pszRepo,
+   const char* pszKeyUrl,
+   char** ppszKeyData
+   );
+
+uint32_t
+_CollectAllReposWithGPGKeys(
+    PTDNF pTdnf,
+    PTDNF_PKG_INFO pPkgInfos,
+    PKEYVALUE *ppRepos
+    )
+{
+    uint32_t dwError = 0;
+    PTDNF_PKG_INFO pPkgInfo = NULL;
+
+    if (!pTdnf || !pPkgInfos || !ppRepos)
+    {
+        dwError = ERROR_TDNF_INVALID_PARAMETER;
+        BAIL_ON_TDNF_ERROR(dwError);
+    }
+
+    for (pPkgInfo = pPkgInfos; pPkgInfo; pPkgInfo = pPkgInfo->pNext)
+    {
+        fprintf(stdout, "repo: %s\n", pPkgInfo->pszRepoName);
+    }
+    
+cleanup:
+    return dwError;
+
+error:
+    goto cleanup;
+}
+    
+
+uint32_t
+TDNFAddGPGKeysToImport(
+    PTDNF pTdnf,
+    PTDNF_SOLVED_PKG_INFO pSolvedPkgInfo
+    )
+{
+    uint32_t dwError = 0;
+    int i = 0;
+    const int ITEMS = 4;
+    PTDNF_PKG_INFO ppPkgInfos[] = {NULL, NULL, NULL, NULL};
+    PKEYVALUE pRepos = NULL;
+
+    if (!pTdnf || !pSolvedPkgInfo)
+    {
+        dwError = ERROR_TDNF_INVALID_PARAMETER;
+        BAIL_ON_TDNF_ERROR(dwError);
+    }
+
+    ppPkgInfos[0] = pSolvedPkgInfo->pPkgsToInstall;
+    ppPkgInfos[1] = pSolvedPkgInfo->pPkgsToUpgrade;
+    ppPkgInfos[2] = pSolvedPkgInfo->pPkgsToDowngrade;
+    ppPkgInfos[3] = pSolvedPkgInfo->pPkgsToReinstall;
+
+    for (i = 0; i < ITEMS; ++i)
+    {
+        if (ppPkgInfos[i] == NULL)
+        {
+            continue;
+        }
+        dwError = _CollectAllReposWithGPGKeys(pTdnf, ppPkgInfos[i], &pRepos);
+        BAIL_ON_TDNF_ERROR(dwError);
+    }
+
+cleanup:
+    return dwError;
+
+error:
+    goto cleanup;
+}
+
+uint32_t
+TDNFImportGPGKeys(
+    PTDNF pTdnf,
+    rpmts pSigVerifyTS,
+    const char *pszRepo,
     const char* pszUrlKeyFile,
     const char* pszPkgFile
     )
@@ -30,16 +118,18 @@ TDNFGPGCheck(
     uint32_t dwError = 0;
     char* pszKeyData = NULL;
 
-    if(!pKeyring || IsNullOrEmptyString(pszUrlKeyFile) || !pszPkgFile)
+    if(!pTdnf || !pSigVerifyTS || IsNullOrEmptyString(pszRepo) ||
+       IsNullOrEmptyString(pszUrlKeyFile) || !pszPkgFile)
     {
         dwError = ERROR_TDNF_INVALID_PARAMETER;
         BAIL_ON_TDNF_ERROR(dwError);
     }
 
-    dwError = AddKeyToKeyRing(pszUrlKeyFile, pKeyring); 
-    BAIL_ON_TDNF_ERROR(dwError);
-
-    dwError = VerifyRpmSig(pKeyring, pszPkgFile);
+    /*
+     * TODO: only import keys if the verify transaction
+     * did not already have keys
+    */
+    dwError = _ImportKeys(pTdnf, pSigVerifyTS, pszRepo, pszUrlKeyFile);
     BAIL_ON_TDNF_ERROR(dwError);
 
 cleanup:
@@ -50,7 +140,8 @@ error:
     goto cleanup;
 }
 
-uint32_t TDNFParseScheme(
+uint32_t
+TDNFParseScheme(
     const char* pszKeyUrl,
     char** ppszScheme)
 {
@@ -93,7 +184,8 @@ error:
     goto cleanup;
 }
 
-uint32_t FileNameFromUri(
+uint32_t
+FileNameFromUri(
     const char* pszKeyUrl,
     char** ppszFile)
 {
@@ -147,29 +239,21 @@ error:
     goto cleanup;
 }
 
+static
 uint32_t
-ReadGPGKey(
-   const char* pszKeyUrl,
-   char** ppszKeyData
+_ReadKeyFile(
+   const char *pszKeyUrl,
+   char **ppszKeyData
    )
 {
     uint32_t dwError = 0;
-    char* pszKeyData = NULL;
+    char *pszFile = NULL;
     int nPathIsDir = 0;
-    char* pszScheme = NULL;
-    char* pszFile = NULL;
+    char *pszKeyData = NULL;
 
     if(IsNullOrEmptyString(pszKeyUrl) || !ppszKeyData)
     {
         dwError = ERROR_TDNF_INVALID_PARAMETER;
-        BAIL_ON_TDNF_ERROR(dwError);
-    }
-
-    dwError =  TDNFParseScheme(pszKeyUrl, &pszScheme);
-    BAIL_ON_TDNF_ERROR(dwError);
-    if(strcasecmp("file", pszScheme))
-    {
-        dwError = ERROR_TDNF_KEYURL_UNSUPPORTED;
         BAIL_ON_TDNF_ERROR(dwError);
     }
 
@@ -198,6 +282,74 @@ ReadGPGKey(
     *ppszKeyData = pszKeyData;
 
 cleanup:
+    return dwError;
+
+error:
+    TDNF_SAFE_FREE_MEMORY(pszKeyData);
+    goto cleanup;
+}
+
+uint32_t
+_ReadGPGKey(
+   PTDNF pTdnf,
+   const char *pszRepo,
+   const char* pszKeyUrl,
+   char** ppszKeyData
+   )
+{
+    uint32_t dwError = 0;
+    int fd = -1;
+    char* pszKeyData = NULL;
+    char* pszScheme = NULL;
+    char* pszFile = NULL;
+    char pszTempKeyFile[] = "/tmp/pubkey.XXXXXX";
+
+    if(IsNullOrEmptyString(pszKeyUrl) || !ppszKeyData)
+    {
+        dwError = ERROR_TDNF_INVALID_PARAMETER;
+        BAIL_ON_TDNF_ERROR(dwError);
+    }
+
+    dwError =  TDNFParseScheme(pszKeyUrl, &pszScheme);
+    BAIL_ON_TDNF_ERROR(dwError);
+
+    /*
+     * allow only file and https
+     * eventually add support for insecure schemes but control with
+     * a repo setting and command line override
+    */
+    if (strcasecmp("file", pszScheme) != 0 &&
+        strcasecmp("https", pszScheme) != 0)
+    {
+        dwError = ERROR_TDNF_KEYURL_UNSUPPORTED;
+        BAIL_ON_TDNF_ERROR(dwError);
+    }
+
+    if(strcasecmp("file", pszScheme) == 0)
+    {
+        dwError = _ReadKeyFile(pszKeyUrl, &pszKeyData);
+        BAIL_ON_TDNF_ERROR(dwError);
+    }
+    else
+    {
+        fd = mkstemp(pszTempKeyFile);
+        if(fd < 1)
+        {
+            dwError = ERROR_TDNF_INVALID_PARAMETER;
+            BAIL_ON_TDNF_ERROR(dwError);
+        }
+
+        dwError = TDNFDownloadFile(pTdnf, pszRepo, pszKeyUrl, pszTempKeyFile, NULL);
+        BAIL_ON_TDNF_ERROR(dwError);
+
+        dwError = TDNFFileReadAllText(pszTempKeyFile, &pszKeyData);
+        BAIL_ON_TDNF_ERROR(dwError);
+    }
+
+    *ppszKeyData = pszKeyData;
+
+cleanup:
+    unlink(pszTempKeyFile);
     TDNF_SAFE_FREE_MEMORY(pszScheme);
     TDNF_SAFE_FREE_MEMORY(pszFile);
     return dwError;
@@ -207,166 +359,88 @@ error:
     goto cleanup;
 }
 
+static
 uint32_t
-AddKeyToKeyRing(
-    const char* pszFile,
-    rpmKeyring pKeyring
+_ImportKey(
+    PTDNF pTdnf,
+    rpmts pSigVerifyTS,
+    const char *pszRepo,
+    const char* pszFile
     )
 {
     uint32_t dwError = 0;
     pgpArmor nArmor = PGPARMOR_NONE;
-    pgpDig pDig = NULL;
-    rpmPubkey pPubkey = NULL;
     uint8_t* pPkt = NULL;
     size_t nPktLen = 0;
     char* pszKeyData = NULL;
+    size_t nCertLen = 0;
 
-    if(IsNullOrEmptyString(pszFile) || !pKeyring)
+    if(!pTdnf || !pSigVerifyTS || IsNullOrEmptyString(pszRepo) ||
+       IsNullOrEmptyString(pszFile))
     {
         dwError = ERROR_TDNF_INVALID_PARAMETER;
         BAIL_ON_TDNF_ERROR(dwError);
     }
 
-    dwError = ReadGPGKey(pszFile, &pszKeyData);
+    dwError = _ReadGPGKey(pTdnf, pszRepo, pszFile, &pszKeyData);
     BAIL_ON_TDNF_ERROR(dwError);
 
     nArmor = pgpParsePkts(pszKeyData, &pPkt, &nPktLen);
-    if(nArmor != PGPARMOR_PUBKEY) 
+    if(nArmor != PGPARMOR_PUBKEY)
     {
         dwError = ERROR_TDNF_INVALID_PUBKEY_FILE;
         BAIL_ON_TDNF_ERROR(dwError);
     }
-    pPubkey = rpmPubkeyNew (pPkt, nPktLen);
-    if(!pPubkey)
-    {
-        dwError = ERROR_TDNF_CREATE_PUBKEY_FAILED;
-        BAIL_ON_TDNF_ERROR(dwError);
-    }
 
-    pDig = rpmPubkeyDig(pPubkey);
-    if(!pDig)
-    {
-        dwError = ERROR_TDNF_CREATE_PUBKEY_FAILED;
-        BAIL_ON_TDNF_ERROR(dwError);
-    }
+    dwError = pgpPubKeyCertLen(pPkt, nPktLen, &nCertLen);
+    BAIL_ON_TDNF_ERROR(dwError);
 
-    dwError = rpmKeyringLookup(pKeyring, pDig);
-    if(dwError == RPMRC_OK)
-    {
-        dwError = 0;//key exists
-    }
-    else
-    {
-        dwError = rpmKeyringAddKey(pKeyring, pPubkey);
-        if(dwError == 1)
-        {
-            dwError = 0;//Already added. ignore
-        }
-        BAIL_ON_TDNF_ERROR(dwError);
-    }
-
+    dwError = rpmtsImportPubkey(pSigVerifyTS, pPkt, nCertLen);
+    BAIL_ON_TDNF_ERROR(dwError);
 cleanup:
+    if (pPkt)
+    {
+        free(pPkt);
+    }
     TDNF_SAFE_FREE_MEMORY(pszKeyData);
     return dwError;
 error:
-    if(pPubkey)
-    {
-        rpmPubkeyFree(pPubkey);
-    }
     goto cleanup;
 }
 
+static
 uint32_t
-VerifyRpmSig(
-    rpmKeyring pKeyring,
-    const char* pszPkgFile
+_ImportKeys(
+    PTDNF pTdnf,
+    rpmts pSigVerifyTS,
+    const char *pszRepo,
+    const char* pszKeyUrl
     )
 {
     uint32_t dwError = 0;
-    FD_t pFD_t = NULL;
-    rpmts pTS = NULL;
-    rpmtd pTD = NULL;
-    Header pPkgHeader = NULL;
-    pgpDig pDigest = NULL;
+    int nKeyCount = 0;
+    int i = 0;
+    const char *pszSeparator = " ";
+    char **ppszKeyUrls = NULL;
 
+    dwError = TDNFMakeArrayFromString(pszKeyUrl,
+                                      pszSeparator,
+                                      &ppszKeyUrls,
+                                      &nKeyCount);
+    BAIL_ON_TDNF_ERROR(dwError);
 
-    if(!pKeyring || IsNullOrEmptyString(pszPkgFile))
+    for (i = 0; i < nKeyCount; ++i)
     {
-        dwError = ERROR_TDNF_INVALID_PARAMETER;
-        BAIL_ON_TDNF_ERROR(dwError);
-    }
-
-    pFD_t = Fopen(pszPkgFile, "r.fdio");
-    if(!pFD_t)
-    {
-        dwError = errno;
-        BAIL_ON_TDNF_SYSTEM_ERROR(dwError);
-    }
-
-    pTS = rpmtsCreate();
-    if(!pTS)
-    {
-        dwError = ERROR_TDNF_RPMTS_CREATE_FAILED;
-        BAIL_ON_TDNF_RPM_ERROR(dwError);
-    }
-    rpmtsSetVSFlags (pTS, _RPMVSF_NOSIGNATURES);
-
-    pTD = rpmtdNew();
-    if(!pTD)
-    {
-        dwError = ERROR_TDNF_RPMTD_CREATE_FAILED;
-        BAIL_ON_TDNF_RPM_ERROR(dwError);
-    }
-
-    dwError = rpmReadPackageFile(pTS, pFD_t, pszPkgFile, &pPkgHeader);
-    BAIL_ON_TDNF_RPM_ERROR(dwError);
-
-    if(!headerConvert(pPkgHeader, HEADERCONV_RETROFIT_V3))
-    {
-        dwError = ERROR_TDNF_RPM_HEADER_CONVERT_FAILED; 
-        BAIL_ON_TDNF_RPM_ERROR(dwError);
-    }
-
-    if(!headerGet(pPkgHeader, RPMTAG_RSAHEADER, pTD, HEADERGET_MINMEM))
-    {
-        dwError = ERROR_TDNF_RPM_GET_RSAHEADER_FAILED;
-        BAIL_ON_TDNF_ERROR(dwError);
-    }
-
-    pDigest = pgpNewDig();
-    if(pgpPrtPkts(pTD->data, pTD->count, pDigest, 0))
-    {
-        dwError = ERROR_TDNF_RPM_GPG_PARSE_FAILED;
-        BAIL_ON_TDNF_ERROR(dwError);
-    }
-
-    if(rpmKeyringLookup(pKeyring, pDigest) != RPMRC_OK)
-    {
-        dwError = ERROR_TDNF_RPM_GPG_NO_MATCH;
+        if (IsNullOrEmptyString(ppszKeyUrls[i]))
+        {
+            continue;
+        }
+        dwError = _ImportKey(pTdnf, pSigVerifyTS, pszRepo, ppszKeyUrls[i]);
         BAIL_ON_TDNF_ERROR(dwError);
     }
 
 cleanup:
-    if(pFD_t)
-    {
-        Fclose(pFD_t);
-    }
-    if(pDigest)
-    {
-        pgpFreeDig(pDigest);
-    }
-    if(pPkgHeader)
-    {
-        headerFree(pPkgHeader);
-    }
-    if(pTD)
-    {
-        rpmtdFree(pTD);
-    }
-    if(pTS)
-    {
-        rpmtsFree(pTS);
-    }
+    TDNFFreeStringArrayWithCount(ppszKeyUrls, nKeyCount);
     return dwError;
 
 error:
