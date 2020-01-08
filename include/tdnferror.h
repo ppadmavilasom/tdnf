@@ -126,6 +126,8 @@ extern "C" {
 #define ERROR_TDNF_RPM_GPG_NO_MATCH          1514
 #define ERROR_TDNF_RPM_CHECK                 1515
 #define ERROR_TDNF_SETOPT_NO_EQUALS          1516
+#define ERROR_TDNF_GPGME_VERSION_FAILED      1517
+#define ERROR_TDNF_GPGME_ERROR               1518
 
 //RPM Transaction
 #define ERROR_TDNF_TRANS_INCOMPLETE     1525

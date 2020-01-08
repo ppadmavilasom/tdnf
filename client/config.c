@@ -79,11 +79,9 @@ TDNFReadConfig(
                   &pConf->nCleanRequirementsOnRemove);
     BAIL_ON_TDNF_ERROR(dwError);
 
-    dwError = TDNFReadKeyValueBoolean(
-                  pSection,
-                  TDNF_CONF_KEY_GPGCHECK,
-                  0,
-                  &pConf->nGPGCheck);
+    /* read gpgcheck and repo_gpgcheck keys */
+    /* note the default for gpgcheck and repo_gpgcheck is 0 */
+    dwError = TDNFReadGPGCheck(pSection, 0, &pConf->nGPGCheck);
     BAIL_ON_TDNF_ERROR(dwError);
 
     dwError = TDNFReadKeyValueBoolean(

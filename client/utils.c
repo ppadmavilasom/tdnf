@@ -651,3 +651,51 @@ TDNFGetCmdOpt(
 error:
     return dwError;
 }
+
+uint32_t
+TDNFReadGPGCheck(
+    PCONF_SECTION pSection,
+    TDNF_GPGCHECK_TYPE nConfGPGCheck,
+    TDNF_GPGCHECK_TYPE *pnGPGCheck
+    )
+{
+    uint32_t dwError = 0;
+    int nRPMGPGCheck = 0;
+    int nRepoGPGCheck = 0;
+    TDNF_GPGCHECK_TYPE nGPGCheck = 0;
+
+    if (!pSection || !pnGPGCheck)
+    {
+        dwError = ERROR_TDNF_INVALID_PARAMETER;
+        BAIL_ON_TDNF_ERROR(dwError);
+    }
+
+    dwError = TDNFReadKeyValueBoolean(
+                  pSection,
+                  TDNF_CONF_KEY_GPGCHECK,
+                  HAS_RPM_GPG_CHECK(nConfGPGCheck),
+                  &nRPMGPGCheck);
+    BAIL_ON_TDNF_ERROR(dwError);
+
+    dwError = TDNFReadKeyValueBoolean(
+                  pSection,
+                  TDNF_CONF_KEY_REPO_GPGCHECK,
+                  HAS_REPO_GPG_CHECK(nConfGPGCheck),
+                  &nRepoGPGCheck);
+    BAIL_ON_TDNF_ERROR(dwError);
+
+    if (nRPMGPGCheck)
+    {
+        nGPGCheck |= RPM_GPGCHECK;
+    }
+
+    if (nRepoGPGCheck)
+    {
+        nGPGCheck |= REPO_GPGCHECK;
+    }
+
+    *pnGPGCheck = nGPGCheck;
+
+error:
+    return dwError;
+}

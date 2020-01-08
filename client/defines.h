@@ -86,6 +86,9 @@ typedef enum
         }                                                          \
     } while(0)
 
+#define HAS_RPM_GPG_CHECK(gpgcheck)  (gpgcheck & RPM_GPGCHECK)
+#define HAS_REPO_GPG_CHECK(gpgcheck) (gpgcheck & REPO_GPGCHECK)
+
 //Misc
 #define TDNF_RPM_EXT                      ".rpm"
 #define TDNF_NAME                         "tdnf"
@@ -103,6 +106,7 @@ typedef enum
 #define TDNF_CONF_GROUP                   "main"
 //Conf file key names
 #define TDNF_CONF_KEY_GPGCHECK            "gpgcheck"
+#define TDNF_CONF_KEY_REPO_GPGCHECK       "repo_gpgcheck"
 #define TDNF_CONF_KEY_INSTALLONLY_LIMIT   "installonly_limit"
 #define TDNF_CONF_KEY_CLEAN_REQ_ON_REMOVE "clean_requirements_on_remove"
 #define TDNF_CONF_KEY_REPODIR             "repodir"
@@ -121,6 +125,7 @@ typedef enum
 #define TDNF_REPO_KEY_NAME                "name"
 #define TDNF_REPO_KEY_SKIP                "skip_if_unavailable"
 #define TDNF_REPO_KEY_GPGCHECK            "gpgcheck"
+#define TDNF_REPO_KEY_REPO_GPGCHECK       "repo_gpgcheck"
 #define TDNF_REPO_KEY_GPGKEY              "gpgkey"
 #define TDNF_REPO_KEY_USERNAME            "username"
 #define TDNF_REPO_KEY_PASSWORD            "password"
@@ -130,6 +135,7 @@ typedef enum
 #define TDNF_REPO_METADATA_MARKER         "lastrefresh"
 #define TDNF_REPO_METADATA_FILE_PATH      "repodata/repomd.xml"
 #define TDNF_REPO_METADATA_FILE_NAME      "repomd.xml"
+#define TDNF_REPO_METADATA_SIG_EXT        ".asc"
 
 //Repo defaults
 #define TDNF_DEFAULT_REPO_LOCATION        "/etc/yum.repos.d"

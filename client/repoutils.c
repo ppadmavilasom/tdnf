@@ -283,6 +283,7 @@ TDNFRemoveTmpRepodata(
     )
 {
     uint32_t dwError = 0;
+    char *pszTmpRepoMDSigFile = NULL;
 
     if (IsNullOrEmptyString(pszTmpRepodataDir) || IsNullOrEmptyString(pszTmpRepoMDFile))
     {
@@ -297,12 +298,28 @@ TDNFRemoveTmpRepodata(
             BAIL_ON_TDNF_ERROR(dwError);
         }
     }
+    
+    dwError = TDNFAllocateStringPrintf(&pszTmpRepoMDSigFile,
+                  "%s%s",
+                  pszTmpRepoMDFile,
+                  TDNF_REPO_METADATA_SIG_EXT);
+    BAIL_ON_TDNF_ERROR(dwError);
+
+    if (unlink(pszTmpRepoMDSigFile))
+    {
+        if (errno != ENOENT)
+        {
+            dwError = errno;
+            BAIL_ON_TDNF_ERROR(dwError);
+        }
+    }
     if (rmdir(pszTmpRepodataDir))
     {
         dwError = errno;
         BAIL_ON_TDNF_SYSTEM_ERROR(dwError);
     }
 cleanup:
+    TDNF_SAFE_FREE_MEMORY(pszTmpRepoMDSigFile);
     return dwError;
 error:
     goto cleanup;

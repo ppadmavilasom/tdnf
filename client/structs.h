@@ -24,7 +24,7 @@ typedef struct _TDNF_REPO_DATA_INTERNAL_
 {
     int nEnabled;
     int nSkipIfUnavailable;
-    int nGPGCheck;
+    TDNF_GPGCHECK_TYPE nGPGCheck;
     long lMetadataExpire;
     char* pszId;
     char* pszName;

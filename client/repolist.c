@@ -70,7 +70,7 @@ TDNFLoadRepoData(
                       pEnt->d_name);
         BAIL_ON_TDNF_ERROR(dwError);
 
-        dwError = TDNFLoadReposFromFile(pszRepoFilePath, &pRepos);
+        dwError = TDNFLoadReposFromFile(pszRepoFilePath, pConf->nGPGCheck, &pRepos);
         BAIL_ON_TDNF_ERROR(dwError);
 
         TDNF_SAFE_FREE_MEMORY(pszRepoFilePath);
@@ -119,11 +119,13 @@ error:
     {
         TDNFFreeReposInternal(pReposAll);
     }
-    goto cleanup;}
+    goto cleanup;
+}
 
 uint32_t
 TDNFLoadReposFromFile(
     char* pszRepoFile,
+    TDNF_GPGCHECK_TYPE nConfGPGCheck,
     PTDNF_REPO_DATA_INTERNAL* ppRepos
     )
 {
@@ -188,11 +190,7 @@ TDNFLoadReposFromFile(
                       &pRepo->nSkipIfUnavailable);
         BAIL_ON_TDNF_ERROR(dwError);
 
-        dwError = TDNFReadKeyValueBoolean(
-                      pSections,
-                      TDNF_REPO_KEY_GPGCHECK,
-                      1,
-                      &pRepo->nGPGCheck);
+        dwError = TDNFReadGPGCheck(pSections, nConfGPGCheck, &pRepo->nGPGCheck);
         BAIL_ON_TDNF_ERROR(dwError);
 
         dwError = TDNFReadKeyValue(

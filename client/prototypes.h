@@ -94,6 +94,13 @@ TDNFRefreshCache(
     PTDNF pTdnf
     );
 
+//repogpgcheck.c
+uint32_t
+TDNFVerifyRepoMDSignature(
+    const char *pszRepoMD,
+    const char *pszRepoMDSig
+    );
+
 //repoutils.c
 uint32_t
 TDNFRepoMakeCacheDirs(
@@ -552,6 +559,7 @@ TDNFReplaceRepoMDFile(
 uint32_t
 TDNFLoadReposFromFile(
     char* pszRepoFile,
+    TDNF_GPGCHECK_TYPE nGPGCheck,
     PTDNF_REPO_DATA_INTERNAL* ppRepos
     );
 
@@ -880,6 +888,13 @@ TDNFGetCmdOpt(
     PTDNF pTdnf,
     TDNF_CMDOPT_TYPE cmdType,
     PTDNF_CMD_OPT *ppOpt
+    );
+
+uint32_t
+TDNFReadGPGCheck(
+    PCONF_SECTION pSection,
+    TDNF_GPGCHECK_TYPE nConfGPGCheck,
+    TDNF_GPGCHECK_TYPE *pnGPGCheck
     );
 
 //validate.c

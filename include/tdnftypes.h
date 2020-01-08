@@ -147,6 +147,14 @@ typedef enum
     SKIPPROBLEM_OBSOLETES
 }TDNF_SKIPPROBLEM_TYPE;
 
+/* gpg check types */
+typedef enum
+{
+    NO_GPGCHECK   = 0,
+    RPM_GPGCHECK  = 0x1,
+    REPO_GPGCHECK = 0x2
+}TDNF_GPGCHECK_TYPE;
+
 typedef struct _TDNF_ *PTDNF;
 
 typedef struct _TDNF_PKG_INFO
@@ -244,7 +252,7 @@ typedef struct _TDNF_CMD_ARGS
 
 typedef struct _TDNF_CONF
 {
-    int nGPGCheck;
+    TDNF_GPGCHECK_TYPE nGPGCheck;
     int nInstallOnlyLimit;
     int nCleanRequirementsOnRemove;
     int nKeepCache;
@@ -262,7 +270,7 @@ typedef struct _TDNF_REPO_DATA
 {
     int nEnabled;
     int nSkipIfUnavailable;
-    int nGPGCheck;
+    TDNF_GPGCHECK_TYPE nGPGCheck;
     long lMetadataExpire;
     char* pszId;
     char* pszName;

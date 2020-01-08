@@ -41,7 +41,7 @@ add_c_compiler_flag(-std=gnu99)
 
 add_c_compiler_flag(-O3 RELEASE)
 add_c_compiler_flag(-s RELEASE)
-add_c_compiler_flag(-O0 DEBUG)
+add_c_compiler_flag(-g DEBUG)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
@@ -70,6 +70,9 @@ find_package(LibSolv REQUIRED ext)
 
 ### External dependency: libcurl
 find_package(CURL REQUIRED)
+
+### External dependency: libgpgme
+find_package(Gpgme REQUIRED)
 
 set(LIB_TDNF_CLIENT tdnfclient)
 
@@ -100,6 +103,7 @@ list(APPEND LIB_TDNF_CLIENT_SRC
     "client/packageutils.c"
     "client/repo.c"
     "client/remoterepo.c"
+    "client/repogpgcheck.c"
     "client/repolist.c"
     "client/repoutils.c"
     "client/resolve.c"
@@ -194,6 +198,7 @@ target_link_libraries(${TDNF_BIN} PUBLIC
     ${RPM_LIBRARIES}
     ${LibSolv_LIBRARIES}
     ${CURL_LIBRARIES}
+    ${GPGME_LIBRARIES}
 )
 
 install(TARGETS ${TDNF_BIN} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT binary)
