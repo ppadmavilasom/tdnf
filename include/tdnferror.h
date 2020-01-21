@@ -63,6 +63,9 @@ extern "C" {
 #define ERROR_TDNF_METADATA_EXPIRE_PARSE    1029
 #define ERROR_TDNF_SELF_ERASE               1030
 #define ERROR_TDNF_ERASE_NEEDS_INSTALL      1031
+/* plugin related */
+#define ERROR_TDNF_PLUGIN_REQUIRED          1032
+#define ERROR_TDNF_PLUGIN_ERROR             1033
 
 //curl errors
 #define ERROR_TDNF_CURL_INIT                1200
@@ -126,6 +129,8 @@ extern "C" {
 #define ERROR_TDNF_RPM_GPG_NO_MATCH          1514
 #define ERROR_TDNF_RPM_CHECK                 1515
 #define ERROR_TDNF_SETOPT_NO_EQUALS          1516
+#define ERROR_TDNF_GPG_VERSION_FAILED        1517
+#define ERROR_TDNF_GPG_ERROR                 1518
 
 //RPM Transaction
 #define ERROR_TDNF_TRANS_INCOMPLETE     1525
