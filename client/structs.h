@@ -24,7 +24,9 @@ typedef struct _TDNF_PLUGIN_
 {
     char *pszName;
     int nEnabled;
-    void *pHandle;
+    void *pModule;
+    PTDNF_PLUGIN_HANDLE pHandle;
+    TDNF_PLUGIN_INTERFACE stInterface;
     struct _TDNF_PLUGIN_ *pNext;
 }TDNF_PLUGIN, *PTDNF_PLUGIN;
 

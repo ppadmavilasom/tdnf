@@ -252,3 +252,4 @@ add_custom_target(package_pytdnf
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/python"
 )
 
+add_subdirectory("${PROJECT_SOURCE_DIR}/plugins")

@@ -58,6 +58,7 @@
 #include <curl/curl.h>
 
 #include <tdnf.h>
+#include <tdnfplugin.h>
 
 #include "defines.h"
 #include "structs.h"

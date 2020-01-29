@@ -24,10 +24,10 @@ _TDNFLoadPlugins(
     );
 
 /*
- * plugins are c libraries which are dynamically loaded
+ * Plugins are c libraries which are dynamically loaded.
  * if noplugins is set, this function returns immediately
- * without further processing
- * files with extension .conf are enumerated from the config
+ * without further processing.
+ * Files with extension ".conf" are enumerated from the config
  * directory.
  * If a plugin is disabled by command line override,
  * the config is skipped.
@@ -109,6 +109,18 @@ error:
 
 static
 void
+_TDNFClosePlugin(
+    PTDNF_PLUGIN pPlugin
+    )
+{
+    if (pPlugin->stInterface.pFnCloseHandle)
+    {
+        pPlugin->stInterface.pFnCloseHandle(pPlugin->pHandle);
+    }
+}
+
+static
+void
 _TDNFFreePlugin(
     PTDNF_PLUGIN pPlugin
     )
@@ -117,6 +129,7 @@ _TDNFFreePlugin(
     {
         if (pPlugin->pHandle)
         {
+            _TDNFClosePlugin(pPlugin);
             dlclose(pPlugin->pHandle);
         }
         TDNF_SAFE_FREE_MEMORY(pPlugin->pszName);
@@ -346,6 +359,7 @@ _TDNFLoadPluginLib(
     )
 {
     uint32_t dwError = 0;
+    PFN_TDNF_PLUGIN_LOAD_INTERFACE pFnLoadInterface = NULL;
 
     if (pPlugin->pHandle)
     {
@@ -356,23 +370,34 @@ _TDNFLoadPluginLib(
     /* clear error */
     dlerror();
 
-    pPlugin->pHandle = dlopen(pszLib, RTLD_NOW);
-    if(!pPlugin->pHandle)
+    pPlugin->pModule = dlopen(pszLib, RTLD_NOW);
+    if(!pPlugin->pModule)
     {
         fprintf(stderr, "Error loading plugin: %s\n", pszLib);
         dwError = ERROR_TDNF_PLUGIN_LOAD_ERROR;
         BAIL_ON_TDNF_ERROR(dwError);
     }
 
+    pFnLoadInterface = dlsym(pPlugin->pModule,
+                             TDNF_FN_NAME_PLUGIN_LOAD_INTERFACE);
+    if (!pFnLoadInterface)
+    {
+        dwError = ERROR_TDNF_PLUGIN_LOAD_ERROR;
+        BAIL_ON_TDNF_ERROR(dwError);
+    }
+
+    dwError = pFnLoadInterface(&pPlugin->stInterface);
+    BAIL_ON_TDNF_ERROR(dwError);
+
 cleanup:
     return dwError;
 
 error:
     fprintf(stderr, "Error: %d dlerror: %s\n", dwError, dlerror());
-    if (pPlugin->pHandle)
+    if (pPlugin->pModule)
     {
-        dlclose(pPlugin->pHandle);
-        pPlugin->pHandle = NULL;
+        dlclose(pPlugin->pModule);
+        pPlugin->pModule = NULL;
     }
     dwError = 0; /* okay to proceed without any or all plugins */
     goto cleanup;
